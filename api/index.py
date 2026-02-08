@@ -4,40 +4,42 @@ import datetime
 
 app = Flask(__name__)
 
+# पंचांग गणना फंक्शन
+def get_rashi(dob, tob):
+    y, m, d = map(int, dob.split('-'))
+    h, mn = map(int, tob.split(':'))
+    
+    # IST to UTC conversion
+    dt = datetime.datetime(y, m, d, h, mn) - datetime.timedelta(hours=5, minutes=30)
+    jd = swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute/60.0)
+    
+    # Moon longitude calculation
+    res, ret = swe.calc_ut(jd, swe.MOON)
+    longitude = res[0]
+    
+    rashi_names = ["Mesh", "Vrishabh", "Mithun", "Kark", "Singh", "Kanya", "Tula", "Vrishchik", "Dhanu", "Makar", "Kumbh", "Meen"]
+    rashi_idx = int(longitude / 30)
+    return rashi_names[rashi_idx]
+
 @app.route('/')
 def home():
-    return "Astro API is Working! Use /calculate"
+    return "Astro API is Live!"
 
 @app.route('/calculate')
 def calculate():
+    dob = request.args.get('dob')
+    tob = request.args.get('tob')
+    
+    if not dob or not tob:
+        return jsonify({"error": "Missing parameters"}), 400
+        
     try:
-        dob = request.args.get('dob')
-        tob = request.args.get('tob')
-        
-        if not dob or not tob:
-            return jsonify({"error": "Missing params"}), 400
-
-        y, m, d = map(int, dob.split('-'))
-        h, mn = map(int, tob.split(':'))
-        
-        # IST to UTC
-        dt = datetime.datetime(y, m, d, h, mn) - datetime.timedelta(hours=5, minutes=30)
-        jd = swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute/60.0)
-        
-        res, ret = swe.calc_ut(jd, swe.MOON)
-        longitude = res[0]
-        
-        rashi_names = ["Mesh", "Vrishabh", "Mithun", "Kark", "Singh", "Kanya", "Tula", "Vrishchik", "Dhanu", "Makar", "Kumbh", "Meen"]
-        rashi_idx = int(longitude / 30)
-        
+        rashi = get_rashi(dob, tob)
         return jsonify({
             "status": "success",
-            "rashi": rashi_names[rashi_idx],
-            "longitude": longitude
+            "rashi": rashi
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# यह लाइन Vercel के लिए सबसे जरूरी है
-if __name__ == "__main__":
-    app.run()
+# Vercel के लिए इसे 'app' ही रहने दें
