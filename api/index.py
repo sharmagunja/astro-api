@@ -1,40 +1,44 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
 import swisseph as swe
 import datetime
 
 app = Flask(__name__)
-CORS(app)
 
-@app.route('/calculate', methods=['GET'])
+@app.route('/')
+def home():
+    return "Astro API is Running! Use /calculate?dob=YYYY-MM-DD&tob=HH:MM"
+
+@app.route('/calculate')
 def calculate():
-    # डेटा लेना: ?dob=1979-06-17&tob=06:30&lat=23.95&lon=86.81
-    dob = request.args.get('dob')
-    tob = request.args.get('tob')
-    lat = float(request.args.get('lat', 23.95))
-    lon = float(request.args.get('lon', 86.81))
+    try:
+        dob = request.args.get('dob')
+        tob = request.args.get('tob')
+        
+        if not dob or not tob:
+            return jsonify({"error": "Missing parameters"}), 400
 
-    y, m, d = map(int, dob.split('-'))
-    h, mn = map(int, tob.split(':'))
-    
-    # UTC समय में बदलना (IST - 5:30)
-    dt = datetime.datetime(y, m, d, h, mn) - datetime.timedelta(hours=5, minutes=30)
-    jd = swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute/60.0)
-    
-    # चंद्रमा की गणना (Moon = 1)
-    res, ret = swe.calc_ut(jd, swe.MOON)
-    longitude = res[0]
-    
-    # राशि निकालना (360 / 30 = 12)
-    rashi_names = ["Mesh", "Vrishabh", "Mithun", "Kark", "Singh", "Kanya", "Tula", "Vrishchik", "Dhanu", "Makar", "Kumbh", "Meen"]
-    rashi_idx = int(longitude / 30)
-    
-    return jsonify({
-        "longitude": longitude,
-        "rashi": rashi_names[rashi_idx],
-        "dob": dob,
-        "status": "success"
-    })
+        y, m, d = map(int, dob.split('-'))
+        h, mn = map(int, tob.split(':'))
+        
+        # IST to UTC (IST - 5:30)
+        dt = datetime.datetime(y, m, d, h, mn) - datetime.timedelta(hours=5, minutes=30)
+        jd = swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute/60.0)
+        
+        # Moon Calculation
+        res, ret = swe.calc_ut(jd, swe.MOON)
+        longitude = res[0]
+        
+        rashi_names = ["Mesh", "Vrishabh", "Mithun", "Kark", "Singh", "Kanya", "Tula", "Vrishchik", "Dhanu", "Makar", "Kumbh", "Meen"]
+        rashi_idx = int(longitude / 30)
+        
+        return jsonify({
+            "status": "success",
+            "rashi": rashi_names[rashi_idx],
+            "longitude": longitude
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-if __name__ == '__main__':
-    app.run()
+# Vercel के लिए यह जरूरी है
+def handler(event, context):
+    return app(event, context)
