@@ -6,15 +6,6 @@ app = Flask(__name__)
 
 # लाहिरी अयनांश सेट करना
 swe.set_sid_mode(swe.SIDM_LAHIRI)
-# --- 🛠️ FIX: format_muhurat फंक्शन को यहाँ डिफाइन करें ---
-    def format_muhurat(dec_h):
-        dec_h = dec_h % 24
-        hr = int(dec_h)
-        mi = int((dec_h % 1) * 60)
-        suffix = 'AM' if hr < 12 else 'PM'
-        display_h = hr if hr <= 12 else hr - 12
-        if display_h == 0: display_h = 12
-        return f"{display_h:02d}:{mi:02d} {suffix}"
 def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     y, m, d = map(int, dob.split('-'))
     h, mn = map(int, tob.split(':'))
@@ -61,7 +52,15 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
         "degree": round(ketu_abs_deg % 30, 2),
         "house": ((ketu_rashi_no - lagna_rashi_no + 12) % 12) + 1
     }
-
+# --- 🛠️ FIX: format_muhurat फंक्शन को यहाँ डिफाइन करें ---
+    def format_muhurat(dec_h):
+        dec_h = dec_h % 24
+        hr = int(dec_h)
+        mi = int((dec_h % 1) * 60)
+        suffix = 'AM' if hr < 12 else 'PM'
+        display_h = hr if hr <= 12 else hr - 12
+        if display_h == 0: display_h = 12
+        return f"{display_h:02d}:{mi:02d} {suffix}"
     # --- 🆕 विस्तृत पंचांग सिस्टम (Full Detailed Section) ---
     sun_deg = planets_data["Sun"]["abs_degree"]
     moon_deg = planets_data["Moon"]["abs_degree"]
