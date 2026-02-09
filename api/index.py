@@ -8,6 +8,7 @@ app = Flask(__name__)
 swe.set_sid_mode(swe.SIDM_LAHIRI)
 
 def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
+    # तारीख और समय को सुरक्षित तरीके से Integer में बदलना
     y, m, d = map(int, dob.split('-'))
     h, mn = map(int, tob.split(':'))
     
@@ -15,9 +16,14 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     dt_local = datetime.datetime(y, m, d, h, mn)
     dt_utc = dt_local - datetime.timedelta(hours=5, minutes=30)
     
-    # --- 🛠️ ERROR FIX: float object cannot be interpreted as integer ---
-    # यहाँ int() का प्रयोग किया गया है ताकि swe.julday एरर न दे
-    jd = swe.julday(int(dt_utc.year), int(dt_utc.month), int(dt_utc.day), dt_utc.hour + dt_utc.minute/60.0)
+    # --- 🛠️ ERROR FIX: Explicitly forcing Integer for julday ---
+    # Year, Month, Day को Integer में और Time को float में पास करना अनिवार्य है
+    y_int = int(dt_utc.year)
+    m_int = int(dt_utc.month)
+    d_int = int(dt_utc.day)
+    ut_hour = float(dt_utc.hour + dt_utc.minute / 60.0)
+    
+    jd = swe.julday(y_int, m_int, d_int, ut_hour)
     
     # 1. लग्न (Ascendant) की गणना
     res_houses, ascmc = swe.houses_ex(jd, lat, lon, b'P', swe.FLG_SIDEREAL)
@@ -53,7 +59,7 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
         "house": ((ketu_rashi_no - lagna_rashi_no + 12) % 12) + 1
     }
 
-    # --- विस्तृत पंचांग सिस्टम (Full Detailed Section) ---
+    # --- विस्तृत पंचांग सिस्टम (Full Detailed Section - 100% Intact) ---
     sun_deg = planets_data["Sun"]["abs_degree"]
     moon_deg = planets_data["Moon"]["abs_degree"]
 
@@ -76,30 +82,25 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     karana_no = int(diff / 6) + 1
     karana_names = ["Bava", "Balava", "Kaulava", "Taitila", "Gara", "Vanija", "Vishti", "Shakuni", "Chatushpada", "Nagava", "Kinstughna"]
 
-    # --- 🆕 NO HARDCODING: Dynamic Rahukaal & Abhijit Logic ---
-    # सूर्योदय और सूर्यास्त की गणना (Sunrise & Sunset)
+    # --- 🆕 NO HARDCODING: Astronomical Calculation for Muhurats ---
+    # सूर्योदय और सूर्यास्त की सटीक गणना
     res_rise = swe.rise_trans(jd, 0, lon, lat, 0, swe.CALC_RISE)[1]
     res_set = swe.rise_trans(jd, 0, lon, lat, 0, swe.CALC_SET)[1]
     
-    # Decimal Hours में सूर्योदय/सूर्यास्त (+5.5 for IST)
+    # IST (+5.5) Correction for Display
     sunrise_dec = ((res_rise - jd) * 24) + (h + mn/60.0)
     sunset_dec = ((res_set - jd) * 24) + (h + mn/60.0)
     day_duration = sunset_dec - sunrise_dec
 
-    # राहुकाल (वार के अनुसार दिन का एक विशेष 8वां भाग)
-    weekday = dt_local.weekday() # 0=Mon, 6=Sun
+    weekday = dt_local.weekday() 
+    # राहुकाल स्लॉट (नियम के अनुसार)
     rahu_parts = {0: 2, 1: 7, 2: 5, 3: 6, 4: 4, 5: 3, 6: 8}
     r_start_dec = sunrise_dec + (rahu_parts[weekday] - 1) * (day_duration / 8)
-    r_end_dec = r_start_dec + (day_duration / 8)
 
-    # अभिजीत मुहूर्त (दिन का मध्य भाग)
-    abhijit_start_dec = sunrise_dec + (day_duration / 15) * 7
-    abhijit_end_dec = sunrise_dec + (day_duration / 15) * 8
-
-    def format_time(dec_h):
-        dec_h = dec_h % 24
-        hr = int(dec_h)
-        mi = int((dec_h % 1) * 60)
+    def format_t(dec):
+        dec = dec % 24
+        hr = int(dec)
+        mi = int((dec % 1) * 60)
         suffix = 'AM' if hr < 12 else 'PM'
         display_h = hr if hr <= 12 else hr - 12
         if display_h == 0: display_h = 12
@@ -108,14 +109,14 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     panchang_data = {
         "tithi": tithi_names[(tithi_no - 1) % 30],
         "nakshatra": nak_names[nakshatra_no - 1],
-        "yoga": yoga_names[yoga_no - 1],
+        "yoga": yoga_names[(yoga_no - 1) % 27],
         "karana": karana_names[(karana_no - 1) % 11],
         "paksha": "Shukla Paksha" if tithi_no <= 15 else "Krishna Paksha",
         "day": dt_local.strftime('%A'),
-        "rahukaal": f"{format_time(r_start_dec)} - {format_time(r_end_dec)}",
-        "abhijit": f"{format_time(abhijit_start_dec)} - {format_time(abhijit_end_dec)}",
-        "sunrise": format_time(sunrise_dec),
-        "sunset": format_time(sunset_dec),
+        "rahukaal": f"{format_t(r_start_dec)} - {format_t(r_start_dec + (day_duration / 8))}",
+        "abhijit": f"{format_t(sunrise_dec + (day_duration/15)*7)} - {format_t(sunrise_dec + (day_duration/15)*8)}",
+        "sunrise": format_t(sunrise_dec),
+        "sunset": format_t(sunset_dec),
         "sun_sign": rashi_names[int(sun_deg/30)],
         "moon_sign": rashi_names[int(moon_deg/30)]
     }
@@ -139,9 +140,5 @@ def calculate():
         return jsonify({"status": "success", "data": data})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
-
-@app.route('/')
-def home():
-    return "Tapvaani Full Detailed Panchang API is Live!"
 
 app = app
