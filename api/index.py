@@ -12,19 +12,15 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     h, mn = map(int, tob.split(':'))
     
     # IST to UTC (-5:30)
-    dt_local = datetime.datetime(y, m, d, h, mn)
-    dt_utc = dt_local - datetime.timedelta(hours=5, minutes=30)
-    
-    # --- 🛠️ ERROR FIX: float to integer conversion ---
-    # यहाँ int() लगाने से 'float object' वाला एरर 100% खत्म हो जाएगा
-    jd = swe.julday(int(dt_utc.year), int(dt_utc.month), int(dt_utc.day), (dt_utc.hour + dt_utc.minute/60.0))
+    dt = datetime.datetime(y, m, d, h, mn) - datetime.timedelta(hours=5, minutes=30)
+    jd = swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute/60.0)
     
     # 1. लग्न (Ascendant) की गणना
     res_houses, ascmc = swe.houses_ex(jd, lat, lon, b'P', swe.FLG_SIDEREAL)
     lagna_degree = ascmc[0]
     lagna_rashi_no = int(lagna_degree / 30) + 1
 
-    # 2. ग्रहों की गणना
+    # 2. ग्रहों की गणना (पुराना लॉजिक बरकरार)
     planet_map = {"Sun": 0, "Moon": 1, "Mercury": 2, "Venus": 3, "Mars": 4, "Jupiter": 5, "Saturn": 6, "Rahu": 10}
     planets_data = {}
     rashi_names = ["Mesh", "Vrishabh", "Mithun", "Kark", "Singh", "Kanya", "Tula", "Vrishchik", "Dhanu", "Makar", "Kumbh", "Meen"]
@@ -53,58 +49,36 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
         "house": ((ketu_rashi_no - lagna_rashi_no + 12) % 12) + 1
     }
 
-    # --- विस्तृत पंचांग सिस्टम (पूरी लिस्ट सुरक्षित है) ---
+    # --- 🆕 विस्तृत पंचांग सिस्टम (Full Detailed Section) ---
     sun_deg = planets_data["Sun"]["abs_degree"]
     moon_deg = planets_data["Moon"]["abs_degree"]
 
+    # 1. तिथि (Tithi)
     diff = (moon_deg - sun_deg + 360) % 360
     tithi_no = int(diff / 12) + 1
     tithi_names = ["Prathama", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Purnima", 
                    "Prathama (K)", "Dwitiya (K)", "Tritiya (K)", "Chaturthi (K)", "Panchami (K)", "Shashthi (K)", "Saptami (K)", "Ashtami (K)", "Navami (K)", "Dashami (K)", "Ekadashi (K)", "Dwadashi (K)", "Trayodashi (K)", "Chaturdashi (K)", "Amavasya"]
     
+    # 2. नक्षत्र (Nakshatra)
     nak_names = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"]
     nakshatra_no = int(moon_deg / (360/27)) + 1
 
+    # 3. योग (Yoga)
+    yoga_deg = (sun_deg + moon_deg) % 360
+    yoga_no = int(yoga_deg / (360/27)) + 1
     yoga_names = ["Vishkumbha", "Preeti", "Ayushman", "Saubhagya", "Shobhana", "Atiganda", "Sukarma", "Dhriti", "Shoola", "Ganda", "Vriddhi", "Dhruva", "Vyaghata", "Harshana", "Vajra", "Siddhi", "Vyatipata", "Variyan", "Parigha", "Shiva", "Siddha", "Sadhya", "Shubha", "Shukla", "Brahma", "Indra", "Vaidhriti"]
-    yoga_no = int(((sun_deg + moon_deg) % 360) / (360/27)) + 1
 
-    karana_names = ["Bava", "Balava", "Kaulava", "Taitila", "Gara", "Vanija", "Vishti", "Shakuni", "Chatushpada", "Nagava", "Kinstughna"]
+    # 4. करण (Karana)
     karana_no = int(diff / 6) + 1
-
-    # --- 🆕 NO HARDCODING: Dynamic Muhurat Logic ---
-    res_rise = swe.rise_trans(jd, 0, lon, lat, 0, swe.CALC_RISE)[1]
-    res_set = swe.rise_trans(jd, 0, lon, lat, 0, swe.CALC_SET)[1]
-    
-    # Decimal hours में सूर्योदय और सूर्यास्त
-    sunrise_dec = ((res_rise - jd) * 24) + (h + mn/60.0)
-    sunset_dec = ((res_set - jd) * 24) + (h + mn/60.0)
-    day_duration = sunset_dec - sunrise_dec
-
-    # राहुकाल (8 भागों में विभाजन)
-    weekday = dt_local.weekday()
-    rahu_parts = {0: 2, 1: 7, 2: 5, 3: 6, 4: 4, 5: 3, 6: 8}
-    r_start_dec = sunrise_dec + (rahu_parts[weekday] - 1) * (day_duration / 8)
-
-    def format_muhurat(dec_h):
-        dec_h = dec_h % 24
-        hr = int(dec_h)
-        mi = int((dec_h % 1) * 60)
-        suffix = 'AM' if hr < 12 else 'PM'
-        display_h = hr if hr <= 12 else hr - 12
-        if display_h == 0: display_h = 12
-        return f"{display_h:02d}:{mi:02d} {suffix}"
+    karana_names = ["Bava", "Balava", "Kaulava", "Taitila", "Gara", "Vanija", "Vishti", "Shakuni", "Chatushpada", "Nagava", "Kinstughna"]
 
     panchang_data = {
         "tithi": tithi_names[(tithi_no - 1) % 30],
         "nakshatra": nak_names[nakshatra_no - 1],
-        "yoga": yoga_names[(yoga_no - 1) % 27],
+        "yoga": yoga_names[yoga_no - 1],
         "karana": karana_names[(karana_no - 1) % 11],
         "paksha": "Shukla Paksha" if tithi_no <= 15 else "Krishna Paksha",
-        "day": dt_local.strftime('%A'),
-        "rahukaal": f"{format_muhurat(r_start_dec)} - {format_muhurat(r_start_dec + (day_duration / 8))}",
-        "abhijit": f"{format_muhurat(sunrise_dec + (day_duration/15)*7)} - {format_muhurat(sunrise_dec + (day_duration/15)*8)}",
-        "sunrise": format_muhurat(sunrise_dec),
-        "sunset": format_muhurat(sunset_dec),
+        "day": dt.strftime('%A'),
         "sun_sign": rashi_names[int(sun_deg/30)],
         "moon_sign": rashi_names[int(moon_deg/30)]
     }
@@ -120,7 +94,7 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
 @app.route('/calculate')
 def calculate():
     dob = request.args.get('dob')
-    tob = request.args.get('tob', '12:00')
+    tob = request.args.get('tob')
     lat = float(request.args.get('lat', 28.6139))
     lon = float(request.args.get('lon', 77.2090))
     try:
@@ -128,5 +102,9 @@ def calculate():
         return jsonify({"status": "success", "data": data})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
+
+@app.route('/')
+def home():
+    return "Tapvaani Full Detailed Panchang API is Live!"
 
 app = app
