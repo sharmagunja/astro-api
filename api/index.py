@@ -12,16 +12,15 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     h, mn = map(int, tob.split(':'))
     
     # IST to UTC (-5:30)
-    dt_local = datetime.datetime(y, m, d, h, mn)
-    dt_utc = dt_local - datetime.timedelta(hours=5, minutes=30)
-    jd = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, dt_utc.hour + dt_utc.minute/60.0)
+    dt = datetime.datetime(y, m, d, h, mn) - datetime.timedelta(hours=5, minutes=30)
+    jd = swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute/60.0)
     
     # 1. लग्न (Ascendant) की गणना
     res_houses, ascmc = swe.houses_ex(jd, lat, lon, b'P', swe.FLG_SIDEREAL)
     lagna_degree = ascmc[0]
     lagna_rashi_no = int(lagna_degree / 30) + 1
 
-    # 2. ग्रहों की गणना
+    # 2. ग्रहों की गणना (पुराना लॉजिक बरकरार)
     planet_map = {"Sun": 0, "Moon": 1, "Mercury": 2, "Venus": 3, "Mars": 4, "Jupiter": 5, "Saturn": 6, "Rahu": 10}
     planets_data = {}
     rashi_names = ["Mesh", "Vrishabh", "Mithun", "Kark", "Singh", "Kanya", "Tula", "Vrishchik", "Dhanu", "Makar", "Kumbh", "Meen"]
@@ -50,7 +49,7 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
         "house": ((ketu_rashi_no - lagna_rashi_no + 12) % 12) + 1
     }
 
-    # --- विस्तृत पंचांग सिस्टम ---
+    # --- 🆕 विस्तृत पंचांग सिस्टम (Full Detailed Section) ---
     sun_deg = planets_data["Sun"]["abs_degree"]
     moon_deg = planets_data["Moon"]["abs_degree"]
 
@@ -73,25 +72,13 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     karana_no = int(diff / 6) + 1
     karana_names = ["Bava", "Balava", "Kaulava", "Taitila", "Gara", "Vanija", "Vishti", "Shakuni", "Chatushpada", "Nagava", "Kinstughna"]
 
-    # --- 🆕 राहुकाल और अभिजीत मुहूर्त लॉजिक ---
-    weekday = dt_local.weekday() # 0=Mon, 6=Sun
-    rahu_start_times = {0: 7.5, 1: 15.0, 2: 12.0, 3: 13.5, 4: 10.5, 5: 9.0, 6: 16.5}
-    r_start = rahu_start_times[weekday]
-    
-    def format_muhurat(dec_h):
-        h = int(dec_h)
-        m = int((dec_h % 1) * 60)
-        return f"{h:02d}:{m:02d} {'AM' if h < 12 else 'PM'}"
-
     panchang_data = {
         "tithi": tithi_names[(tithi_no - 1) % 30],
         "nakshatra": nak_names[nakshatra_no - 1],
         "yoga": yoga_names[yoga_no - 1],
         "karana": karana_names[(karana_no - 1) % 11],
         "paksha": "Shukla Paksha" if tithi_no <= 15 else "Krishna Paksha",
-        "day": dt_local.strftime('%A'),
-        "rahukaal": f"{format_muhurat(r_start)} - {format_muhurat(r_start + 1.5)}",
-        "abhijit": "11:55 AM - 12:45 PM",
+        "day": dt.strftime('%A'),
         "sun_sign": rashi_names[int(sun_deg/30)],
         "moon_sign": rashi_names[int(moon_deg/30)]
     }
@@ -120,5 +107,4 @@ def calculate():
 def home():
     return "Tapvaani Full Detailed Panchang API is Live!"
 
-# Vercel Deployment के लिए जरूरी
 app = app
