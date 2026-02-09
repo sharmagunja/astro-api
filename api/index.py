@@ -72,13 +72,20 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     karana_no = int(diff / 6) + 1
     karana_names = ["Bava", "Balava", "Kaulava", "Taitila", "Gara", "Vanija", "Vishti", "Shakuni", "Chatushpada", "Nagava", "Kinstughna"]
 
+    # पंचांग डेटा में ये दो लाइनें जोड़ें (बाकी कोड वैसा ही रहने दें)
     panchang_data = {
         "tithi": tithi_names[(tithi_no - 1) % 30],
         "nakshatra": nak_names[nakshatra_no - 1],
-        "yoga": yoga_names[yoga_no - 1],
+        "yoga": yoga_names[(yoga_no - 1) % 27],
         "karana": karana_names[(karana_no - 1) % 11],
         "paksha": "Shukla Paksha" if tithi_no <= 15 else "Krishna Paksha",
-        "day": dt.strftime('%A'),
+        "day": dt_local.strftime('%A'),
+        # --- ये दो लाइनें पक्का जोड़ें ---
+        "rahukaal": f"{format_muhurat(r_start_dec)} - {format_muhurat(r_start_dec + (day_duration / 8))}",
+        "abhijit": f"{format_muhurat(sunrise_dec + (day_duration/15)*7)} - {format_muhurat(sunrise_dec + (day_duration/15)*8)}",
+        # ---------------------------
+        "sunrise": format_muhurat(sunrise_dec),
+        "sunset": format_muhurat(sunset_dec),
         "sun_sign": rashi_names[int(sun_deg/30)],
         "moon_sign": rashi_names[int(moon_deg/30)]
     }
