@@ -20,7 +20,7 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     lagna_degree = ascmc[0]
     lagna_rashi_no = int(lagna_degree / 30) + 1
 
-    # 2. ग्रहों की गणना (पुराना लॉजिक)
+    # 2. ग्रहों की गणना (पुराना लॉजिक बरकरार)
     planet_map = {"Sun": 0, "Moon": 1, "Mercury": 2, "Venus": 3, "Mars": 4, "Jupiter": 5, "Saturn": 6, "Rahu": 10}
     planets_data = {}
     rashi_names = ["Mesh", "Vrishabh", "Mithun", "Kark", "Singh", "Kanya", "Tula", "Vrishchik", "Dhanu", "Makar", "Kumbh", "Meen"]
@@ -35,7 +35,7 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
             "rashi_name": rashi_names[rashi_no-1],
             "degree": round(deg % 30, 2),
             "house": house,
-            "abs_degree": deg # पंचांग गणना के लिए सुरक्षित रखा
+            "abs_degree": deg 
         }
 
     # केतु की गणना
@@ -49,7 +49,7 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
         "house": ((ketu_rashi_no - lagna_rashi_no + 12) % 12) + 1
     }
 
-    # --- 🆕 नया पंचांग सिस्टम (New Section) ---
+    # --- 🆕 विस्तृत पंचांग सिस्टम (Full Detailed Section) ---
     sun_deg = planets_data["Sun"]["abs_degree"]
     moon_deg = planets_data["Moon"]["abs_degree"]
 
@@ -63,14 +63,24 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     nak_names = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"]
     nakshatra_no = int(moon_deg / (360/27)) + 1
 
-    # 3. सूर्योदय और सूर्यास्त (अनुमानित दिल्ली के लिए - आप lat/lon से इसे और सटीक कर सकते हैं)
-    # वास्तविक सूर्योदय के लिए swe.rise_trans का उपयोग होता है, अभी सरल डेटा दे रहे हैं
-    
+    # 3. योग (Yoga)
+    yoga_deg = (sun_deg + moon_deg) % 360
+    yoga_no = int(yoga_deg / (360/27)) + 1
+    yoga_names = ["Vishkumbha", "Preeti", "Ayushman", "Saubhagya", "Shobhana", "Atiganda", "Sukarma", "Dhriti", "Shoola", "Ganda", "Vriddhi", "Dhruva", "Vyaghata", "Harshana", "Vajra", "Siddhi", "Vyatipata", "Variyan", "Parigha", "Shiva", "Siddha", "Sadhya", "Shubha", "Shukla", "Brahma", "Indra", "Vaidhriti"]
+
+    # 4. करण (Karana)
+    karana_no = int(diff / 6) + 1
+    karana_names = ["Bava", "Balava", "Kaulava", "Taitila", "Gara", "Vanija", "Vishti", "Shakuni", "Chatushpada", "Nagava", "Kinstughna"]
+
     panchang_data = {
         "tithi": tithi_names[(tithi_no - 1) % 30],
         "nakshatra": nak_names[nakshatra_no - 1],
+        "yoga": yoga_names[yoga_no - 1],
+        "karana": karana_names[(karana_no - 1) % 11],
         "paksha": "Shukla Paksha" if tithi_no <= 15 else "Krishna Paksha",
-        "day": dt.strftime('%A')
+        "day": dt.strftime('%A'),
+        "sun_sign": rashi_names[int(sun_deg/30)],
+        "moon_sign": rashi_names[int(moon_deg/30)]
     }
 
     return {
@@ -78,7 +88,7 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
         "lagna_name": rashi_names[lagna_rashi_no-1],
         "moon_rashi": planets_data["Moon"]["rashi_name"],
         "planets": planets_data,
-        "panchang": panchang_data # पंचांग अब JSON में अलग से दिखेगा
+        "panchang": panchang_data
     }
 
 @app.route('/calculate')
@@ -95,6 +105,6 @@ def calculate():
 
 @app.route('/')
 def home():
-    return "Tapvaani 9-Planet Astro API with Panchang is Live!"
+    return "Tapvaani Full Detailed Panchang API is Live!"
 
 app = app
