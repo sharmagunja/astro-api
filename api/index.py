@@ -10,10 +10,15 @@ swe.set_sid_mode(swe.SIDM_LAHIRI)
 def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     y, m, d = map(int, dob.split('-'))
     h, mn = map(int, tob.split(':'))
+
+    # 1. सबसे पहले dt_local को सही से डिफाइन करें
+    dt_local = datetime.datetime(y, m, d, h, mn)
+    dt_utc = dt_local - datetime.timedelta(hours=5, minutes=30)
     
-    # IST to UTC (-5:30)
-    dt = datetime.datetime(y, m, d, h, mn) - datetime.timedelta(hours=5, minutes=30)
-    jd = swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute/60.0)
+    # 2. फिर jd (Julian Day) निकालें (Integer Fix के साथ)
+    jd = swe.julday(int(dt_utc.year), int(dt_utc.month), int(dt_utc.day), dt_utc.hour + dt_utc.minute/60.0)
+    
+   
     
     # 1. लग्न (Ascendant) की गणना
     res_houses, ascmc = swe.houses_ex(jd, lat, lon, b'P', swe.FLG_SIDEREAL)
