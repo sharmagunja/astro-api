@@ -15,7 +15,8 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     dt_local = datetime.datetime(y, m, d, h, mn)
     dt_utc = dt_local - datetime.timedelta(hours=5, minutes=30)
     
-    # Float Error Fix: int() conversion
+    # --- 🛠️ ERROR FIX: float object cannot be interpreted as integer ---
+    # यहाँ int() का प्रयोग किया गया है ताकि swe.julday एरर न दे
     jd = swe.julday(int(dt_utc.year), int(dt_utc.month), int(dt_utc.day), h + mn/60.0 - 5.5)
     
     # 1. लग्न (Ascendant) की गणना
@@ -52,7 +53,7 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
         "house": ((ketu_rashi_no - lagna_rashi_no + 12) % 12) + 1
     }
 
-    # --- विस्तृत पंचांग सिस्टम (Full Detailed Lists - Unchanged) ---
+    # --- विस्तृत पंचांग सिस्टम (Lists Unchanged) ---
     sun_deg = planets_data["Sun"]["abs_degree"]
     moon_deg = planets_data["Moon"]["abs_degree"]
 
@@ -71,24 +72,17 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     karana_names = ["Bava", "Balava", "Kaulava", "Taitila", "Gara", "Vanija", "Vishti", "Shakuni", "Chatushpada", "Nagava", "Kinstughna"]
     karana_no = int(diff / 6) + 1
 
-    # --- 🆕 NO HARDCODING: Astronomical Calculation ---
+    # --- 🆕 NO HARDCODING: Dynamic Muhurat Logic ---
     res_rise = swe.rise_trans(jd, 0, lon, lat, 0, swe.CALC_RISE)[1]
     res_set = swe.rise_trans(jd, 0, lon, lat, 0, swe.CALC_SET)[1]
     
-    # IST (+5.5) Correction for Display
     sunrise_dec = ((res_rise - jd) * 24) + (h + mn/60.0)
     sunset_dec = ((res_set - jd) * 24) + (h + mn/60.0)
     day_duration = sunset_dec - sunrise_dec
 
-    weekday = dt_local.weekday() 
-    # Rahu segments rule
+    weekday = dt_local.weekday()
     rahu_parts = {0: 2, 1: 7, 2: 5, 3: 6, 4: 4, 5: 3, 6: 8}
     r_start_dec = sunrise_dec + (rahu_parts[weekday] - 1) * (day_duration / 8)
-    r_end_dec = r_start_dec + (day_duration / 8)
-
-    # Abhijit calculation (Midday segment)
-    abhijit_start_dec = sunrise_dec + (day_duration / 15) * 7
-    abhijit_end_dec = sunrise_dec + (day_duration / 15) * 8
 
     def format_muhurat(dec_h):
         dec_h = dec_h % 24
@@ -106,12 +100,12 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
         "karana": karana_names[(karana_no - 1) % 11],
         "paksha": "Shukla Paksha" if tithi_no <= 15 else "Krishna Paksha",
         "day": dt_local.strftime('%A'),
-        "rahukaal": f"{format_muhurat(r_start_dec)} - {format_muhurat(r_end_dec)}",
-        "abhijit": f"{format_muhurat(abhijit_start_dec)} - {format_muhurat(abhijit_end_dec)}",
-        "sunrise": format_muhurat(sunrise_dec),
-        "sunset": format_muhurat(sunset_dec),
+        "rahukaal": f"{format_muhurat(r_start_dec)} - {format_muhurat(r_start_dec + (day_duration / 8))}",
+        "abhijit": f"{format_muhurat(sunrise_dec + (day_duration/15)*7)} - {format_muhurat(sunrise_dec + (day_duration/15)*8)}",
         "sun_sign": rashi_names[int(sun_deg/30)],
-        "moon_sign": rashi_names[int(moon_deg/30)]
+        "moon_sign": rashi_names[int(moon_deg/30)],
+        "sunrise": format_muhurat(sunrise_dec),
+        "sunset": format_muhurat(sunset_dec)
     }
 
     return {
@@ -133,5 +127,9 @@ def calculate():
         return jsonify({"status": "success", "data": data})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
+
+@app.route('/')
+def home():
+    return "Tapvaani Full Detailed Panchang API is Live!"
 
 app = app
