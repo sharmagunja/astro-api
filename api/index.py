@@ -20,24 +20,11 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     lagna_degree = ascmc[0]
     lagna_rashi_no = int(lagna_degree / 30) + 1
 
-    # 2. पूरे 9 ग्रहों की लिस्ट (Correct IDs)
-    # 0=Sun, 1=Moon, 2=Mercury, 3=Venus, 4=Mars, 5=Jupiter, 6=Saturn, 10=Rahu
-    # केतु को हम 180 डिग्री के गणित से ही निकालेंगे क्योंकि वो सबसे सटीक होता है
-    planet_map = {
-        "Sun": 0, 
-        "Moon": 1, 
-        "Mercury": 2, 
-        "Venus": 3, 
-        "Mars": 4, 
-        "Jupiter": 5, 
-        "Saturn": 6, 
-        "Rahu": 10
-    }
-
+    # 2. ग्रहों की गणना (पुराना लॉजिक)
+    planet_map = {"Sun": 0, "Moon": 1, "Mercury": 2, "Venus": 3, "Mars": 4, "Jupiter": 5, "Saturn": 6, "Rahu": 10}
     planets_data = {}
     rashi_names = ["Mesh", "Vrishabh", "Mithun", "Kark", "Singh", "Kanya", "Tula", "Vrishchik", "Dhanu", "Makar", "Kumbh", "Meen"]
 
-    # पहले 8 ग्रहों की गणना
     for name, p_id in planet_map.items():
         res, ret = swe.calc_ut(jd, p_id, swe.FLG_SIDEREAL)
         deg = res[0]
@@ -47,11 +34,12 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
             "rashi_no": rashi_no,
             "rashi_name": rashi_names[rashi_no-1],
             "degree": round(deg % 30, 2),
-            "house": house
+            "house": house,
+            "abs_degree": deg # पंचांग गणना के लिए सुरक्षित रखा
         }
 
-    # 3. नौवां ग्रह: केतु (Ketu) - राहु के ठीक सामने
-    rahu_abs_deg = (planets_data["Rahu"]["rashi_no"] - 1) * 30 + planets_data["Rahu"]["degree"]
+    # केतु की गणना
+    rahu_abs_deg = planets_data["Rahu"]["abs_degree"]
     ketu_abs_deg = (rahu_abs_deg + 180) % 360
     ketu_rashi_no = int(ketu_abs_deg / 30) + 1
     planets_data["Ketu"] = {
@@ -61,11 +49,36 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
         "house": ((ketu_rashi_no - lagna_rashi_no + 12) % 12) + 1
     }
 
+    # --- 🆕 नया पंचांग सिस्टम (New Section) ---
+    sun_deg = planets_data["Sun"]["abs_degree"]
+    moon_deg = planets_data["Moon"]["abs_degree"]
+
+    # 1. तिथि (Tithi)
+    diff = (moon_deg - sun_deg + 360) % 360
+    tithi_no = int(diff / 12) + 1
+    tithi_names = ["Prathama", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Purnima", 
+                   "Prathama (K)", "Dwitiya (K)", "Tritiya (K)", "Chaturthi (K)", "Panchami (K)", "Shashthi (K)", "Saptami (K)", "Ashtami (K)", "Navami (K)", "Dashami (K)", "Ekadashi (K)", "Dwadashi (K)", "Trayodashi (K)", "Chaturdashi (K)", "Amavasya"]
+    
+    # 2. नक्षत्र (Nakshatra)
+    nak_names = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"]
+    nakshatra_no = int(moon_deg / (360/27)) + 1
+
+    # 3. सूर्योदय और सूर्यास्त (अनुमानित दिल्ली के लिए - आप lat/lon से इसे और सटीक कर सकते हैं)
+    # वास्तविक सूर्योदय के लिए swe.rise_trans का उपयोग होता है, अभी सरल डेटा दे रहे हैं
+    
+    panchang_data = {
+        "tithi": tithi_names[(tithi_no - 1) % 30],
+        "nakshatra": nak_names[nakshatra_no - 1],
+        "paksha": "Shukla Paksha" if tithi_no <= 15 else "Krishna Paksha",
+        "day": dt.strftime('%A')
+    }
+
     return {
         "lagna": lagna_rashi_no,
         "lagna_name": rashi_names[lagna_rashi_no-1],
         "moon_rashi": planets_data["Moon"]["rashi_name"],
-        "planets": planets_data # अब इसमें पूरे 9 ग्रह हैं!
+        "planets": planets_data,
+        "panchang": panchang_data # पंचांग अब JSON में अलग से दिखेगा
     }
 
 @app.route('/calculate')
@@ -82,6 +95,6 @@ def calculate():
 
 @app.route('/')
 def home():
-    return "Tapvaani 9-Planet Astro API is Live!"
+    return "Tapvaani 9-Planet Astro API with Panchang is Live!"
 
 app = app
