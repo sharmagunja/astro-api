@@ -15,13 +15,13 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     dt_local = datetime.datetime(y, m, d, h, mn)
     dt_utc = dt_local - datetime.timedelta(hours=5, minutes=30)
     
-    # --- 🛠️ THE ULTIMATE FIX ---
+    # --- 🛠️ THE FINAL FIX FOR INTEGER ERROR ---
     # julday को Year, Month, Day हमेशा Integer चाहिए।
-    # और समय (UT) को हम float में पास कर सकते हैं।
+    # समय (UT) को हम float में पास कर सकते हैं।
     year_int = int(dt_utc.year)
     month_int = int(dt_utc.month)
     day_int = int(dt_utc.day)
-    ut_hour = dt_utc.hour + dt_utc.minute / 60.0 + dt_utc.second / 3600.0
+    ut_hour = float(dt_utc.hour + dt_utc.minute / 60.0)
     
     jd = swe.julday(year_int, month_int, day_int, ut_hour)
     
@@ -59,27 +59,30 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
         "house": ((ketu_rashi_no - lagna_rashi_no + 12) % 12) + 1
     }
 
-    # --- विस्तृत पंचांग सिस्टम (All Lists Intact) ---
+    # --- विस्तृत पंचांग सिस्टम (पूरी लिस्ट बरकरार) ---
     sun_deg = planets_data["Sun"]["abs_degree"]
     moon_deg = planets_data["Moon"]["abs_degree"]
-    diff = (moon_deg - sun_deg + 360) % 360
 
+    diff = (moon_deg - sun_deg + 360) % 360
+    tithi_no = int(diff / 12) + 1
     tithi_names = ["Prathama", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Purnima", 
                    "Prathama (K)", "Dwitiya (K)", "Tritiya (K)", "Chaturthi (K)", "Panchami (K)", "Shashthi (K)", "Saptami (K)", "Ashtami (K)", "Navami (K)", "Dashami (K)", "Ekadashi (K)", "Dwadashi (K)", "Trayodashi (K)", "Chaturdashi (K)", "Amavasya"]
     
     nak_names = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"]
     nakshatra_no = int(moon_deg / (360/27)) + 1
 
+    yoga_deg = (sun_deg + moon_deg) % 360
+    yoga_no = int(yoga_deg / (360/27)) + 1
     yoga_names = ["Vishkumbha", "Preeti", "Ayushman", "Saubhagya", "Shobhana", "Atiganda", "Sukarma", "Dhriti", "Shoola", "Ganda", "Vriddhi", "Dhruva", "Vyaghata", "Harshana", "Vajra", "Siddhi", "Vyatipata", "Variyan", "Parigha", "Shiva", "Siddha", "Sadhya", "Shubha", "Shukla", "Brahma", "Indra", "Vaidhriti"]
-    yoga_no = int(((sun_deg + moon_deg) % 360) / (360/27)) + 1
 
     karana_names = ["Bava", "Balava", "Kaulava", "Taitila", "Gara", "Vanija", "Vishti", "Shakuni", "Chatushpada", "Nagava", "Kinstughna"]
     karana_no = int(diff / 6) + 1
 
-    # --- Dynamic Muhurat Logic ---
+    # --- 🆕 NO HARDCODING: Astronomical Calculation ---
     res_rise = swe.rise_trans(jd, 0, lon, lat, 0, swe.CALC_RISE)[1]
     res_set = swe.rise_trans(jd, 0, lon, lat, 0, swe.CALC_SET)[1]
     
+    # Decimal Hours calculation with IST correction
     sunrise_dec = ((res_rise - jd) * 24) + (h + mn/60.0)
     sunset_dec = ((res_set - jd) * 24) + (h + mn/60.0)
     day_duration = sunset_dec - sunrise_dec
@@ -98,11 +101,11 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
         return f"{display_h:02d}:{mi:02d} {suffix}"
 
     panchang_data = {
-        "tithi": tithi_names[(int(diff/12)) % 30],
-        "nakshatra": nak_names[(nakshatra_no - 1) % 27],
+        "tithi": tithi_names[(tithi_no - 1) % 30],
+        "nakshatra": nak_names[nakshatra_no - 1],
         "yoga": yoga_names[(yoga_no - 1) % 27],
         "karana": karana_names[(karana_no - 1) % 11],
-        "paksha": "Shukla Paksha" if (int(diff/12)) < 15 else "Krishna Paksha",
+        "paksha": "Shukla Paksha" if tithi_no <= 15 else "Krishna Paksha",
         "day": dt_local.strftime('%A'),
         "rahukaal": f"{format_muhurat(r_start_dec)} - {format_muhurat(r_start_dec + (day_duration / 8))}",
         "abhijit": f"{format_muhurat(sunrise_dec + (day_duration/15)*7)} - {format_muhurat(sunrise_dec + (day_duration/15)*8)}",
