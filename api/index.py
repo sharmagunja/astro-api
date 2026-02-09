@@ -8,7 +8,6 @@ app = Flask(__name__)
 swe.set_sid_mode(swe.SIDM_LAHIRI)
 
 def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
-    # तारीख और समय को सुरक्षित तरीके से Integer में बदलना
     y, m, d = map(int, dob.split('-'))
     h, mn = map(int, tob.split(':'))
     
@@ -16,8 +15,8 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     dt_local = datetime.datetime(y, m, d, h, mn)
     dt_utc = dt_local - datetime.timedelta(hours=5, minutes=30)
     
-    # --- 🛠️ THE FINAL BUG FIX ---
-    # यहाँ int() का उपयोग करना अनिवार्य है ताकि 'float' वाला एरर न आए
+    # --- 🛠️ ERROR FIX: float object cannot be interpreted as integer ---
+    # julday को Year, Month, Day हमेशा Integer चाहिए।
     y_int = int(dt_utc.year)
     m_int = int(dt_utc.month)
     d_int = int(dt_utc.day)
@@ -30,7 +29,7 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
     lagna_degree = ascmc[0]
     lagna_rashi_no = int(lagna_degree / 30) + 1
 
-    # 2. ग्रहों की गणना (Full Original Logic)
+    # 2. ग्रहों की गणना
     planet_map = {"Sun": 0, "Moon": 1, "Mercury": 2, "Venus": 3, "Mars": 4, "Jupiter": 5, "Saturn": 6, "Rahu": 10}
     planets_data = {}
     rashi_names = ["Mesh", "Vrishabh", "Mithun", "Kark", "Singh", "Kanya", "Tula", "Vrishchik", "Dhanu", "Makar", "Kumbh", "Meen"]
@@ -59,48 +58,63 @@ def get_complete_chart(dob, tob, lat=28.6139, lon=77.2090):
         "house": ((ketu_rashi_no - lagna_rashi_no + 12) % 12) + 1
     }
 
-    # --- विस्तृत पंचांग सिस्टम (All Lists Restored) ---
+    # --- विस्तृत पंचांग सिस्टम ---
     sun_deg = planets_data["Sun"]["abs_degree"]
     moon_deg = planets_data["Moon"]["abs_degree"]
+
     diff = (moon_deg - sun_deg + 360) % 360
-
-    tithi_names = ["Prathama", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Purnima", "Prathama (K)", "Dwitiya (K)", "Tritiya (K)", "Chaturthi (K)", "Panchami (K)", "Shashthi (K)", "Saptami (K)", "Ashtami (K)", "Navami (K)", "Dashami (K)", "Ekadashi (K)", "Dwadashi (K)", "Trayodashi (K)", "Chaturdashi (K)", "Amavasya"]
+    tithi_no = int(diff / 12) + 1
+    tithi_names = ["Prathama", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Purnima", 
+                   "Prathama (K)", "Dwitiya (K)", "Tritiya (K)", "Chaturthi (K)", "Panchami (K)", "Shashthi (K)", "Saptami (K)", "Ashtami (K)", "Navami (K)", "Dashami (K)", "Ekadashi (K)", "Dwadashi (K)", "Trayodashi (K)", "Chaturdashi (K)", "Amavasya"]
+    
     nak_names = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"]
-    yoga_names = ["Vishkumbha", "Preeti", "Ayushman", "Saubhagya", "Shobhana", "Atiganda", "Sukarma", "Dhriti", "Shoola", "Ganda", "Vriddhi", "Dhruva", "Vyaghata", "Harshana", "Vajra", "Siddhi", "Vyatipata", "Variyan", "Parigha", "Shiva", "Siddha", "Sadhya", "Shubha", "Shukla", "Brahma", "Indra", "Vaidhriti"]
-    karana_names = ["Bava", "Balava", "Kaulava", "Taitila", "Gara", "Vanija", "Vishti", "Shakuni", "Chatushpada", "Nagava", "Kinstughna"]
+    nakshatra_no = int(moon_deg / (360/27)) + 1
 
-    # --- 🆕 खगोलीय गणना (Sunrise/Sunset/Rahukaal) ---
+    yoga_names = ["Vishkumbha", "Preeti", "Ayushman", "Saubhagya", "Shobhana", "Atiganda", "Sukarma", "Dhriti", "Shoola", "Ganda", "Vriddhi", "Dhruva", "Vyaghata", "Harshana", "Vajra", "Siddhi", "Vyatipata", "Variyan", "Parigha", "Shiva", "Siddha", "Sadhya", "Shubha", "Shukla", "Brahma", "Indra", "Vaidhriti"]
+    yoga_no = int(((sun_deg + moon_deg) % 360) / (360/27)) + 1
+
+    karana_names = ["Bava", "Balava", "Kaulava", "Taitila", "Gara", "Vanija", "Vishti", "Shakuni", "Chatushpada", "Nagava", "Kinstughna"]
+    karana_no = int(diff / 6) + 1
+
+    # --- 🆕 NO HARDCODING: Dynamic Rahukaal & Abhijit Logic ---
+    # सूर्योदय और सूर्यास्त की गणना (Sunrise & Sunset)
     res_rise = swe.rise_trans(jd, 0, lon, lat, 0, swe.CALC_RISE)[1]
     res_set = swe.rise_trans(jd, 0, lon, lat, 0, swe.CALC_SET)[1]
     
+    # Decimal Hours में सूर्योदय/सूर्यास्त (+5.5 for IST Display)
     sunrise_dec = ((res_rise - jd) * 24) + (h + mn/60.0)
     sunset_dec = ((res_set - jd) * 24) + (h + mn/60.0)
-    day_dur = sunset_dec - sunrise_dec
+    day_duration = sunset_dec - sunrise_dec
 
-    weekday = dt_local.weekday()
+    # राहुकाल (8 भागों में विभाजन)
+    weekday = dt_local.weekday() 
     rahu_parts = {0: 2, 1: 7, 2: 5, 3: 6, 4: 4, 5: 3, 6: 8}
-    r_start_dec = sunrise_dec + (rahu_parts[weekday] - 1) * (day_dur / 8)
+    r_start_dec = sunrise_dec + (rahu_parts[weekday] - 1) * (day_duration / 8)
 
-    def format_t(dec):
-        dec = dec % 24
-        hr = int(dec)
-        mi = int((dec % 1) * 60)
+    # अभिजीत मुहूर्त (दोपहर का 8वां मुहूर्त)
+    abhijit_start_dec = sunrise_dec + (day_duration / 15) * 7
+    abhijit_end_dec = sunrise_dec + (day_duration / 15) * 8
+
+    def format_muhurat(dec_h):
+        dec_h = dec_h % 24
+        hr = int(dec_h)
+        mi = int((dec_h % 1) * 60)
         suffix = 'AM' if hr < 12 else 'PM'
         display_h = hr if hr <= 12 else hr - 12
         if display_h == 0: display_h = 12
         return f"{display_h:02d}:{mi:02d} {suffix}"
 
     panchang_data = {
-        "tithi": tithi_names[int(diff/12) % 30],
-        "nakshatra": nak_names[int(moon_deg/(360/27)) % 27],
-        "yoga": yoga_names[int(((sun_deg+moon_deg)%360)/(360/27)) % 27],
-        "karana": karana_names[int(diff/6) % 11],
-        "paksha": "Shukla Paksha" if diff < 180 else "Krishna Paksha",
+        "tithi": tithi_names[(tithi_no - 1) % 30],
+        "nakshatra": nak_names[nakshatra_no - 1],
+        "yoga": yoga_names[(yoga_no - 1) % 27],
+        "karana": karana_names[(karana_no - 1) % 11],
+        "paksha": "Shukla Paksha" if tithi_no <= 15 else "Krishna Paksha",
         "day": dt_local.strftime('%A'),
-        "rahukaal": f"{format_t(r_start_dec)} - {format_t(r_start_dec + day_dur/8)}",
-        "abhijit": f"{format_t(sunrise_dec + (day_dur/15)*7)} - {format_t(sunrise_dec + (day_dur/15)*8)}",
-        "sunrise": format_t(sunrise_dec),
-        "sunset": format_t(sunset_dec),
+        "rahukaal": f"{format_muhurat(r_start_dec)} - {format_muhurat(r_start_dec + (day_duration / 8))}",
+        "abhijit": f"{format_muhurat(abhijit_start_dec)} - {format_muhurat(abhijit_end_dec)}",
+        "sunrise": format_muhurat(sunrise_dec),
+        "sunset": format_muhurat(sunset_dec),
         "sun_sign": rashi_names[int(sun_deg/30)],
         "moon_sign": rashi_names[int(moon_deg/30)]
     }
